@@ -1,0 +1,140 @@
+I want to build a modern, interactive, and responsive quiz platform with the following features.
+Use only in-memory storage (no external databases like MongoDB, SQL, Firebase, etc.) and do not use WebSockets. Use any efficient alternatives that enable fast, real-time-like updates without WebSockets (e.g., polling, shared memory across sessions, or custom mechanisms).
+
+Admin Quiz Creation Flow:
+Admin enters:
+
+Quiz Title
+
+Total Time Duration
+
+Start Date & Time
+
+After submitting the above, go to Question Builder Page:
+
+Dropdown to choose Question Timer:
+
+If same for all questions → ask once: “Time per question (seconds)”
+
+If different → show time input field inside each question component
+
+“Add Question” button dynamically adds new question blocks
+
+For each question:
+
+Dropdown to select Question Type: “MCQ”, “Fill in the Blanks”, “True/False”
+
+Based on type:
+
+MCQ:
+
+Input for question
+
+Add multiple options (unlimited)
+
+Select correct option
+
+Fill in the Blanks:
+
+Input for question and correct answer
+
+True/False:
+
+Input for question
+
+Select True or False as correct
+
+Marks field for each question
+
+All added questions should display immediately below
+
+Admin Panel:
+Controls available:
+
+Start Quiz
+
+Next Question
+
+End Quiz
+
+View Leaderboard
+
+These override scheduled time (i.e., if “Start” is clicked early, the quiz should begin immediately)
+
+QR Code Integration:
+Button to Generate QR Code
+
+Show QR in a popup/modal with option to Download
+
+When scanned:
+
+If quiz has started → show “Quiz already started. You cannot join.”
+
+Else → show Registration Form with:
+
+Name
+
+Email
+
+Phone Number
+
+If same email tries to register → show “Participant already registered”
+
+After successful registration, show:
+
+Countdown timer to start
+
+Quiz details (title, number of players joined — update in near real-time using polling or memory sync)
+
+Quiz Flow:
+Quiz starts:
+
+Automatically based on scheduled start time
+
+Or manually if admin clicks “Start Quiz”
+
+Questions shown one at a time:
+
+Automatically go to next question when time ends (per-question time)
+
+Or manually when admin clicks “Next Question”
+
+If user doesn't submit → assign 0
+
+On answer submission:
+
+Calculate:
+
+Score based on correctness
+
+Time taken per question (used in scoring logic)
+
+Update leaderboard ranking in real-time (use in-memory store, update via polling or short interval fetching)
+
+Post-Quiz Result:
+For participant:
+
+Total score
+
+Accuracy (%)
+
+Average response time
+
+Top 3 players
+
+Full leaderboard
+
+For admin (in admin panel):
+
+Same information as above
+
+Technical Requirements:
+UI must be very modern, responsive, and mobile-friendly
+
+Use only in-memory storage (no external databases)
+
+Do not use WebSockets
+
+Enable fast, real-time-like behavior using other strategies (polling, event triggers, internal memory sync)
+
+Must be fast and scalable
