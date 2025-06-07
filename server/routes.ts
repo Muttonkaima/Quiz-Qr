@@ -249,6 +249,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           averageResponseTime: avgResponseTime,
           currentQuestion: (participant.currentQuestion || 0) + 1
         });
+
+        // Check if this was the last question for this participant
+        const allQuestions = await storage.getQuizQuestions(participant.quizId);
+        if ((participant.currentQuestion || 0) + 1 >= allQuestions.length) {
+          // Check if all participants have finished
+          const allParticipants = await storage.getQuizParticipants(participant.quizId);
+          const finishedParticipants = allParticipants.filter(p => 
+            (p.currentQuestion || 0) >= allQuestions.length
+          );
+          
+          // If all participants have finished, end the quiz
+          if (finishedParticipants.length === allParticipants.length) {
+            await storage.updateQuiz(participant.quizId, { status: "completed" });
+          }
+        }
       }
       
       res.json(answer);
