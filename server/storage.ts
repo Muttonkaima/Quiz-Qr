@@ -61,8 +61,15 @@ export class MemStorage implements IStorage {
   async createQuiz(insertQuiz: InsertQuiz): Promise<Quiz> {
     const id = this.currentQuizId++;
     const quiz: Quiz = {
-      ...insertQuiz,
       id,
+      title: insertQuiz.title,
+      duration: insertQuiz.duration,
+      startDate: insertQuiz.startDate,
+      startTime: insertQuiz.startTime,
+      status: insertQuiz.status || "draft",
+      currentQuestion: insertQuiz.currentQuestion || null,
+      defaultTimePerQuestion: insertQuiz.defaultTimePerQuestion || null,
+      timerType: insertQuiz.timerType || "same",
       createdAt: new Date(),
     };
     this.quizzes.set(id, quiz);
@@ -90,8 +97,15 @@ export class MemStorage implements IStorage {
   async createQuestion(insertQuestion: InsertQuestion): Promise<Question> {
     const id = this.currentQuestionId++;
     const question: Question = {
-      ...insertQuestion,
       id,
+      quizId: insertQuestion.quizId,
+      questionNumber: insertQuestion.questionNumber,
+      type: insertQuestion.type,
+      question: insertQuestion.question,
+      options: insertQuestion.options || null,
+      correctAnswer: insertQuestion.correctAnswer,
+      marks: insertQuestion.marks || 10,
+      timeLimit: insertQuestion.timeLimit || null,
     };
     this.questions.set(id, question);
     return question;

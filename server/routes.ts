@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertQuizSchema, insertQuestionSchema, insertParticipantSchema, insertAnswerSchema } from "@shared/schema";
 import { z } from "zod";
+import QRCode from "qrcode";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -189,12 +190,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const avgResponseTime = totalAnswers > 0 ? 
           Math.round(answers.reduce((sum, a) => sum + a.timeSpent, 0) / totalAnswers) : 0;
         
-        // Calculate score based on correct answers and question marks
+        // Calculate score based on time taken and correctness
         const questions = await storage.getQuizQuestions(participant.quizId);
         const score = answers.reduce((sum, ans) => {
           if (ans.isCorrect) {
             const question = questions.find(q => q.id === ans.questionId);
-            return sum + (question?.marks || 0);
+            if (question) {
+              const maxTime = question.timeLimit || quiz?.defaultTimePerQuestion || 30;
+              const timeBonus = Math.max(0, 1 - (ans.timeSpent / maxTime));
+              const scoreForQuestion = Math.round(question.marks * timeBonus);
+              return sum + scoreForQuestion;
+            }
           }
           return sum;
         }, 0);
@@ -203,7 +209,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           score,
           accuracy,
           averageResponseTime: avgResponseTime,
-          currentQuestion: participant.currentQuestion + 1
+          currentQuestion: (participant.currentQuestion || 0) + 1
         });
       }
       
@@ -296,9 +302,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const baseUrl = process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost:5000';
       const participantUrl = `https://${baseUrl}/participant/${id}`;
       
+      // Generate actual QR code
+      const qrCodeDataURL = await QRCode.toDataURL(participantUrl, {
+        width: 256,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+      
       res.json({ 
         url: participantUrl,
-        qrData: participantUrl 
+        qrData: participantUrl,
+        qrCodeDataURL
       });
     } catch (error) {
       res.status(500).json({ message: "Failed to generate QR code", error });

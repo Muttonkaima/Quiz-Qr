@@ -22,9 +22,8 @@ export default function QRModal({ quizId, onClose }: QRModalProps) {
   });
 
   useEffect(() => {
-    if (qrData?.qrData) {
-      const dataURL = generateQRCodeDataURL(qrData.qrData);
-      setQrDataURL(dataURL);
+    if (qrData?.qrCodeDataURL) {
+      setQrDataURL(qrData.qrCodeDataURL);
     }
   }, [qrData]);
 
