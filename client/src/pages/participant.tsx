@@ -24,7 +24,14 @@ export default function ParticipantPage() {
   const [participantId, setParticipantId] = useState<number | null>(null);
   const [countdown, setCountdown] = useState(0);
 
-  const { data: quiz, isLoading } = useQuery({
+  const { data: quiz, isLoading } = useQuery<{
+    id: number;
+    title: string;
+    status: string;
+    startDate: string;
+    startTime: string;
+    participantCount: number;
+  }>({
     queryKey: [`/api/quizzes/${quizId}`],
     enabled: !!quizId,
   });
@@ -77,12 +84,15 @@ export default function ParticipantPage() {
     }
   }, [quiz, participantId, setLocation]);
 
-  // Check if quiz has started manually
+  // Check if quiz has started manually or by time
   useEffect(() => {
-    if (quiz?.status === "active" && participantId) {
-      setLocation(`/quiz/${participantId}`);
+    if (quiz && participantId) {
+      const hasStarted = quiz.status === "active" || isQuizStarted(quiz);
+      if (hasStarted) {
+        setLocation(`/quiz/${participantId}`);
+      }
     }
-  }, [quiz?.status, participantId, setLocation]);
+  }, [quiz?.status, quiz?.startDate, quiz?.startTime, participantId, setLocation]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

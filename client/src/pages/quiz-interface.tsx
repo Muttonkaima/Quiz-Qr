@@ -22,17 +22,38 @@ export default function QuizInterface() {
   const [timeRemaining, setTimeRemaining] = useState(30);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
 
-  const { data: participant } = useQuery({
+  const { data: participant } = useQuery<{
+    id: number;
+    quizId: number;
+    score: number;
+    accuracy: number;
+    rank: number;
+    currentQuestion: number;
+  }>({
     queryKey: [`/api/participants/${participantId}`],
     enabled: !!participantId,
   });
 
-  const { data: quiz } = useQuery({
+  const { data: quiz } = useQuery<{
+    id: number;
+    currentQuestion: number;
+    status: string;
+    defaultTimePerQuestion: number;
+  }>({
     queryKey: [`/api/quizzes/${participant?.quizId}`],
     enabled: !!participant?.quizId,
   });
 
-  const { data: questions = [] } = useQuery({
+  const { data: questions = [] } = useQuery<Array<{
+    id: number;
+    questionNumber: number;
+    type: string;
+    question: string;
+    options: string[];
+    correctAnswer: string;
+    marks: number;
+    timeLimit: number;
+  }>>({
     queryKey: [`/api/quizzes/${participant?.quizId}/questions`],
     enabled: !!participant?.quizId,
   });
@@ -79,7 +100,7 @@ export default function QuizInterface() {
       setTimeRemaining((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          // Auto-submit with no answer
+          // Auto-submit with no answer and auto-advance
           handleSubmitAnswer(true);
           return 0;
         }
@@ -89,6 +110,25 @@ export default function QuizInterface() {
 
     return () => clearInterval(timer);
   }, [currentQuestion, quiz]);
+
+  // Auto-advance to next question when quiz progresses
+  useEffect(() => {
+    if (quiz && questions.length > 0 && participant) {
+      const expectedQuestion = quiz.currentQuestion || 1;
+      const participantQuestion = (participant.currentQuestion || 0) + 1;
+      
+      // If participant is behind the current quiz question, auto-advance
+      if (participantQuestion < expectedQuestion) {
+        setQuestionStartTime(Date.now());
+        setSelectedAnswer("");
+      }
+      
+      // If quiz has moved beyond all questions, go to results
+      if (expectedQuestion > questions.length) {
+        setLocation(`/results/${participantId}`);
+      }
+    }
+  }, [quiz?.currentQuestion, participant?.currentQuestion, questions.length, participantId, setLocation]);
 
   // Check if quiz has ended
   useEffect(() => {

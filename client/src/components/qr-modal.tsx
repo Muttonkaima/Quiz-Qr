@@ -16,7 +16,11 @@ export default function QRModal({ quizId, onClose }: QRModalProps) {
   const { toast } = useToast();
   const [qrDataURL, setQrDataURL] = useState("");
 
-  const { data: qrData } = useQuery({
+  const { data: qrData } = useQuery<{
+    url: string;
+    qrData: string;
+    qrCodeDataURL: string;
+  }>({
     queryKey: [`/api/quizzes/${quizId}/qr`],
     enabled: !!quizId,
   });

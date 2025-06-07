@@ -131,6 +131,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const participant = await storage.createParticipant(participantData);
+      
+      // Update quiz status to "waiting" if it's still in draft
+      const quiz = await storage.getQuiz(participantData.quizId);
+      if (quiz && quiz.status === "draft") {
+        await storage.updateQuiz(participantData.quizId, { status: "waiting" });
+      }
+      
       res.json(participant);
     } catch (error) {
       res.status(400).json({ message: "Invalid participant data", error });
@@ -192,11 +199,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Calculate score based on time taken and correctness
         const questions = await storage.getQuizQuestions(participant.quizId);
+        const currentQuiz = await storage.getQuiz(participant.quizId);
         const score = answers.reduce((sum, ans) => {
           if (ans.isCorrect) {
             const question = questions.find(q => q.id === ans.questionId);
             if (question) {
-              const maxTime = question.timeLimit || quiz?.defaultTimePerQuestion || 30;
+              const maxTime = question.timeLimit || currentQuiz?.defaultTimePerQuestion || 30;
               const timeBonus = Math.max(0, 1 - (ans.timeSpent / maxTime));
               const scoreForQuestion = Math.round(question.marks * timeBonus);
               return sum + scoreForQuestion;
