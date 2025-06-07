@@ -37,7 +37,7 @@ export default function ParticipantPage() {
   });
 
   // Enable polling for participant count updates
-  usePolling([`/api/quizzes/${quizId}`], 3000, !!quizId);
+  usePolling([`/api/quizzes/${quizId}`], 1000, !!quizId);
 
   const registerMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -60,39 +60,35 @@ export default function ParticipantPage() {
     },
   });
 
-  // Countdown timer effect
+  // Improved effect: react to quiz.status and clear timer on redirect
   useEffect(() => {
-    if (quiz && !isQuizStarted(quiz)) {
-      const timeUntilStart = getTimeUntilStart(quiz);
-      setCountdown(timeUntilStart);
-
-      const timer = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            // Redirect to quiz interface when countdown reaches 0
-            if (participantId) {
-              setLocation(`/quiz/${participantId}`);
-            }
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      return () => clearInterval(timer);
+    if (!quiz || !participantId) return;
+    let timer: NodeJS.Timeout | null = null;
+    // Debug logs
+    console.log("[Participant] quiz.status:", quiz.status, "isQuizStarted:", isQuizStarted(quiz), "countdown:", countdown);
+    // If admin started the quiz OR scheduled time has arrived
+    if (quiz.status === "active" || isQuizStarted(quiz)) {
+      console.log("[Participant] Redirecting to quiz interface because quiz is active or scheduled time arrived.");
+      setTimeout(() => setLocation(`/quiz/${participantId}`), 100); // Small delay to ensure state flush
+      return () => { if (timer) clearInterval(timer); };
     }
-  }, [quiz, participantId, setLocation]);
-
-  // Check if quiz has started manually or by time
-  useEffect(() => {
-    if (quiz && participantId) {
-      const hasStarted = quiz.status === "active" || isQuizStarted(quiz);
-      if (hasStarted) {
-        setLocation(`/quiz/${participantId}`);
-      }
-    }
-  }, [quiz?.status, quiz?.startDate, quiz?.startTime, participantId, setLocation]);
+    // Otherwise, show countdown until scheduled start
+    const timeUntilStart = getTimeUntilStart(quiz);
+    setCountdown(timeUntilStart);
+    timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          if (timer) clearInterval(timer);
+          // On countdown end, effect will re-run due to dependency change
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [quiz?.status, quiz?.startDate, quiz?.startTime, participantId, setLocation, countdown]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

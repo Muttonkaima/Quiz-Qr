@@ -358,8 +358,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Quiz not found" });
       }
       
-      const baseUrl = process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost:5000';
-      const participantUrl = `https://${baseUrl}/participant/${id}`;
+      const protocol = req.protocol;
+      const host = req.get('host');
+      const baseUrl = `${protocol}://${host}`;
+      const participantUrl = `${baseUrl}/participant/${id}`;
       
       // Generate actual QR code
       const qrCodeDataURL = await QRCode.toDataURL(participantUrl, {
