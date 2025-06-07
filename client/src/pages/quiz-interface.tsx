@@ -21,6 +21,8 @@ export default function QuizInterface() {
   const [selectedAnswer, setSelectedAnswer] = useState("");
   const [timeRemaining, setTimeRemaining] = useState(30);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: participant } = useQuery<{
     id: number;
@@ -71,16 +73,21 @@ export default function QuizInterface() {
       return response.json();
     },
     onSuccess: () => {
+      setHasSubmitted(true);
+      setIsSubmitting(false);
       setSelectedAnswer("");
-      setQuestionStartTime(Date.now());
-      queryClient.invalidateQueries({ queryKey: [`/api/participants/${participantId}`] });
       
-      // Check if quiz is completed
-      if (quiz && questions.length > 0 && quiz.currentQuestion >= questions.length) {
+      // Invalidate queries to update scores immediately
+      queryClient.invalidateQueries({ queryKey: [`/api/participants/${participantId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/quizzes/${participant?.quizId}/leaderboard`] });
+      
+      // Check if this was the last question
+      if (quiz && questions.length > 0 && (participant?.currentQuestion || 0) + 1 >= questions.length) {
         setLocation(`/results/${participantId}`);
       }
     },
     onError: (error: any) => {
+      setIsSubmitting(false);
       toast({
         title: "Error",
         description: error.message || "Failed to submit answer",
@@ -91,17 +98,20 @@ export default function QuizInterface() {
 
   // Question timer
   useEffect(() => {
-    if (!currentQuestion) return;
+    if (!currentQuestion || hasSubmitted) return;
 
     const timeLimit = currentQuestion.timeLimit || quiz?.defaultTimePerQuestion || 30;
     setTimeRemaining(timeLimit);
+    setHasSubmitted(false);
 
     const timer = setInterval(() => {
       setTimeRemaining((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          // Auto-submit with no answer and auto-advance
-          handleSubmitAnswer(true);
+          // Auto-submit with no answer when timer expires
+          if (!hasSubmitted && !isSubmitting) {
+            handleSubmitAnswer(true);
+          }
           return 0;
         }
         return prev - 1;
@@ -109,7 +119,7 @@ export default function QuizInterface() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [currentQuestion, quiz]);
+  }, [currentQuestion, quiz, hasSubmitted]);
 
   // Auto-advance to next question when quiz progresses
   useEffect(() => {
@@ -117,10 +127,12 @@ export default function QuizInterface() {
       const expectedQuestion = quiz.currentQuestion || 1;
       const participantQuestion = (participant.currentQuestion || 0) + 1;
       
-      // If participant is behind the current quiz question, auto-advance
+      // If participant is behind the current quiz question, reset for new question
       if (participantQuestion < expectedQuestion) {
         setQuestionStartTime(Date.now());
         setSelectedAnswer("");
+        setHasSubmitted(false);
+        setIsSubmitting(false);
       }
       
       // If quiz has moved beyond all questions, go to results
@@ -138,8 +150,9 @@ export default function QuizInterface() {
   }, [quiz?.status, participantId, setLocation]);
 
   const handleSubmitAnswer = (autoSubmit = false) => {
-    if (!currentQuestion || !participant) return;
+    if (!currentQuestion || !participant || hasSubmitted || isSubmitting) return;
 
+    setIsSubmitting(true);
     const timeSpent = Math.floor((Date.now() - questionStartTime) / 1000);
     const answer = autoSubmit ? "" : selectedAnswer;
     
@@ -248,10 +261,10 @@ export default function QuizInterface() {
 
             <Button
               onClick={() => handleSubmitAnswer()}
-              disabled={!selectedAnswer || submitAnswerMutation.isPending}
+              disabled={!selectedAnswer || hasSubmitted || isSubmitting}
               className="mt-6 w-full"
             >
-              {submitAnswerMutation.isPending ? "Submitting..." : "Submit Answer"}
+              {isSubmitting ? "Submitting..." : hasSubmitted ? "Answer Submitted" : "Submit Answer"}
             </Button>
           </CardContent>
         </Card>

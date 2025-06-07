@@ -5,6 +5,36 @@ import { insertQuizSchema, insertQuestionSchema, insertParticipantSchema, insert
 import { z } from "zod";
 import QRCode from "qrcode";
 
+// Auto-advance function for questions
+async function autoAdvanceToNextQuestion(quizId: number) {
+  const quiz = await storage.getQuiz(quizId);
+  if (!quiz || quiz.status !== "active") return;
+  
+  const questions = await storage.getQuizQuestions(quizId);
+  const nextQuestion = Math.min((quiz.currentQuestion || 0) + 1, questions.length);
+  
+  if (nextQuestion > questions.length) {
+    // Quiz completed
+    await storage.updateQuiz(quizId, { status: "completed" });
+  } else {
+    // Move to next question
+    await storage.updateQuiz(quizId, { currentQuestion: nextQuestion });
+    
+    // Set timer for next question
+    const question = questions.find(q => q.questionNumber === nextQuestion);
+    if (question) {
+      const timeLimit = question.timeLimit || quiz.defaultTimePerQuestion || 30;
+      
+      setTimeout(async () => {
+        const currentQuiz = await storage.getQuiz(quizId);
+        if (currentQuiz && currentQuiz.status === "active" && currentQuiz.currentQuestion === nextQuestion) {
+          await autoAdvanceToNextQuestion(quizId);
+        }
+      }, timeLimit * 1000);
+    }
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   
   // Quiz routes
@@ -259,6 +289,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!quiz) {
         return res.status(404).json({ message: "Quiz not found" });
       }
+      
+      // Start auto-advance timer for first question
+      const questions = await storage.getQuizQuestions(id);
+      if (questions.length > 0) {
+        const firstQuestion = questions[0];
+        const timeLimit = firstQuestion.timeLimit || quiz.defaultTimePerQuestion || 30;
+        
+        setTimeout(async () => {
+          const currentQuiz = await storage.getQuiz(id);
+          if (currentQuiz && currentQuiz.status === "active" && currentQuiz.currentQuestion === 1) {
+            await autoAdvanceToNextQuestion(id);
+          }
+        }, timeLimit * 1000);
+      }
+      
       res.json(quiz);
     } catch (error) {
       res.status(500).json({ message: "Failed to start quiz", error });
@@ -268,17 +313,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/quizzes/:id/next", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const quiz = await storage.getQuiz(id);
-      if (!quiz) {
-        return res.status(404).json({ message: "Quiz not found" });
-      }
-      
-      const questions = await storage.getQuizQuestions(id);
-      const nextQuestion = Math.min((quiz.currentQuestion || 0) + 1, questions.length);
-      
-      const updatedQuiz = await storage.updateQuiz(id, { 
-        currentQuestion: nextQuestion 
-      });
+      await autoAdvanceToNextQuestion(id);
+      const updatedQuiz = await storage.getQuiz(id);
       res.json(updatedQuiz);
     } catch (error) {
       res.status(500).json({ message: "Failed to move to next question", error });
